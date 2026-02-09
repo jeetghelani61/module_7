@@ -34,7 +34,12 @@ class _WeatherScreenState extends State<WeatherScreen> {
   bool isLoading = false;
 
   Future<void> getWeather(String city) async {
-    if (city.isEmpty) return;
+    if (city.trim().isEmpty) {
+      setState(() {
+        result = "Please enter city name";
+      });
+      return;
+    }
 
     setState(() {
       isLoading = true;
@@ -46,27 +51,28 @@ class _WeatherScreenState extends State<WeatherScreen> {
 
     try {
       final response = await http.get(Uri.parse(url));
-      final data = json.decode(response.body);
 
       if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+
         setState(() {
           result = """
 City: ${data['name']}
 Temperature: ${data['main']['temp']} °C
 Feels Like: ${data['main']['feels_like']} °C
 Weather: ${data['weather'][0]['description']}
-Humidity: ${data['main']['humidity']}%
-Wind: ${data['wind']['speed']} m/s
+Humidity: ${data['main']['humidity']} %
+Wind Speed: ${data['wind']['speed']} m/s
 """;
         });
       } else {
         setState(() {
-          result = "City not found!";
+          result = "City not found ❌";
         });
       }
     } catch (e) {
       setState(() {
-        result = "Network error!";
+        result = "Network error! Check internet ❌";
       });
     }
 
@@ -76,9 +82,18 @@ Wind: ${data['wind']['speed']} m/s
   }
 
   @override
+  void dispose() {
+    cityController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Weather App")),
+      appBar: AppBar(
+        title: const Text("Weather App"),
+        centerTitle: true,
+      ),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -107,7 +122,7 @@ Wind: ${data['wind']['speed']} m/s
                 child: Padding(
                   padding: const EdgeInsets.all(16),
                   child: Text(
-                    result.isEmpty ? "Search a city" : result,
+                    result.isEmpty ? "Search a city 🌍" : result,
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
