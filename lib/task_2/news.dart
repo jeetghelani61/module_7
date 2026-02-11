@@ -3,123 +3,126 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
-  runApp(const MovieApp());
+  runApp(const MyApp());
 }
 
-class MovieApp extends StatelessWidget {
-  const MovieApp({super.key});
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
       debugShowCheckedModeBanner: false,
-      home: MovieSearchScreen(),
+      home: NewsPage(),
     );
   }
 }
 
-class MovieSearchScreen extends StatefulWidget {
-  const MovieSearchScreen({super.key});
+// MODEL
+class NewsArticle {
+  final String title;
+  final String description;
+  final String imageUrl;
 
-  @override
-  State<MovieSearchScreen> createState() => _MovieSearchScreenState();
+  NewsArticle({
+    required this.title,
+    required this.description,
+    required this.imageUrl,
+  });
+
+  factory NewsArticle.fromJson(Map<String, dynamic> json) {
+    return NewsArticle(
+      title: json['title'] ?? 'No Title',
+      description: json['description'] ?? '',
+      imageUrl: json['urlToImage'] ?? '',
+    );
+  }
 }
 
-class _MovieSearchScreenState extends State<MovieSearchScreen> {
-  final String apiKey = "YOUR_REAL_OMDB_KEY";
-  final TextEditingController controller = TextEditingController();
+// API
+class ApiService {
+  Future<List<NewsArticle>> fetchNews() async {
+    final url = Uri.parse(
+      "https://newsapi.org/v2/everything?q=tesla&from=2026-01-11&sortBy=publishedAt&apiKey=5b80d6652da241b0aaedda2d1d9a1a97",
+    );
 
-  List movies = [];
-  bool isLoading = false;
-  String error = "";
+    final response = await http.get(url);
 
-  Future<void> searchMovie() async {
-    if (controller.text.isEmpty) return;
-
-    setState(() {
-      isLoading = true;
-      error = "";
-    });
-
-    final url =
-        "https://www.omdbapi.com/?apikey=$apiKey&s=${controller.text}";
-
-    try {
-      final response = await http.get(Uri.parse(url));
+    if (response.statusCode == 200) {
       final data = json.decode(response.body);
-
-      if (data["Response"] == "True") {
-        setState(() {
-          movies = data["Search"];
-        });
-      } else {
-        setState(() {
-          error = data["Error"];
-          movies = [];
-        });
-      }
-    } catch (e) {
-      setState(() {
-        error = "Internet problem";
-      });
+      List articles = data['articles'];
+      return articles.map((e) => NewsArticle.fromJson(e)).toList();
+    } else {
+      throw Exception("API Error");
     }
+  }
+}
 
-    setState(() {
-      isLoading = false;
-    });
+// UI
+class NewsPage extends StatefulWidget {
+  const NewsPage({super.key});
+
+  @override
+  State<NewsPage> createState() => _NewsPageState();
+}
+
+class _NewsPageState extends State<NewsPage> {
+  late Future<List<NewsArticle>> futureNews;
+
+  @override
+  void initState() {
+    super.initState();
+    futureNews = ApiService().fetchNews();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Movie Search")),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: TextField(
-              controller: controller,
-              onSubmitted: (_) => searchMovie(),
-              decoration: InputDecoration(
-                hintText: "Enter movie name",
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: searchMovie,
-                ),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ),
-
-          if (isLoading) const CircularProgressIndicator(),
-
-          if (error.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.all(10),
-              child: Text(
-                error,
-                style: const TextStyle(color: Colors.red),
-              ),
-            ),
-
-          Expanded(
-            child: ListView.builder(
-              itemCount: movies.length,
+      appBar: AppBar(title: const Text("Tesla News")),
+      body: FutureBuilder<List<NewsArticle>>(
+        future: futureNews,
+        builder: (context, snapshot) {
+          if (snapshot.hasData) {
+            return ListView.builder(
+              itemCount: snapshot.data!.length,
               itemBuilder: (context, index) {
-                final m = movies[index];
+                final news = snapshot.data![index];
                 return Card(
-                  child: ListTile(
-                    leading: m["Poster"] != "N/A"
-                        ? Image.network(m["Poster"], width: 50)
-                        : const Icon(Icons.movie),
-                    title: Text(m["Title"]),
-                    subtitle: Text(m["Year"]),
+                  margin: const EdgeInsets.all(10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      news.imageUrl.isNotEmpty
+                          ? Image.network(news.imageUrl)
+                          : Container(
+                        height: 200,
+                        color: Colors.grey,
+                        child: const Center(
+                          child: Icon(Icons.image, size: 50),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Text(
+                          news.title,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.all(10),
+                        child: Text(news.description),
+                      ),
+                    ],
                   ),
                 );
               },
-            ),
-          ),
-        ],
+            );
+          } else if (snapshot.hasError) {
+            return const Center(child: Text("API not working"));
+          }
+          return const Center(child: CircularProgressIndicator());
+        },
       ),
     );
   }
