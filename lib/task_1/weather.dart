@@ -28,7 +28,8 @@ class WeatherScreen extends StatefulWidget {
 class _WeatherScreenState extends State<WeatherScreen> {
   final TextEditingController cityController = TextEditingController();
 
-  final String apiKey = "2d05bd3df986d71e190a4458ea0c3e10";
+  // NEW API KEY
+  final String apiKey = "8e3b4ca2172d5a1ff8dbfc1c66071ba9";
 
   String result = "";
   bool isLoading = false;
